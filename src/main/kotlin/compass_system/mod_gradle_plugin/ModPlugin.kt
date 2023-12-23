@@ -18,7 +18,7 @@ import org.gradle.kotlin.dsl.named
 import org.gradle.language.jvm.tasks.ProcessResources
 
 class ModPlugin : Plugin<Project> {
-    private val JAVA_VERSION = JavaVersion.VERSION_17
+    private val javaVersion = JavaVersion.VERSION_17
 
     override fun apply(project: Project) {
         val projectData = ProjectData(project)
@@ -34,7 +34,7 @@ class ModPlugin : Plugin<Project> {
         project.tasks.apply {
             withType(JavaCompile::class.java).configureEach {
                 options.encoding = "UTF-8"
-                options.release = JAVA_VERSION.ordinal + 1
+                options.release = javaVersion.ordinal + 1
             }
 
             named<Jar>("jar") {
@@ -61,6 +61,7 @@ class ModPlugin : Plugin<Project> {
                 sourceSet("client")
             }
 
+            @Suppress("UnstableApiUsage")
             mixin.defaultRefmapName.set("${projectData.modId}.refmap.json")
 
             if (project.hasProperty("access_widener_path")) {
@@ -79,7 +80,7 @@ class ModPlugin : Plugin<Project> {
 
         project.dependencies {
             add("minecraft", "com.mojang:minecraft:${projectData.minecraftVersion}")
-            add("mappings", loom.layered {
+            add("mappings", @Suppress("UnstableApiUsage") loom.layered {
                 officialMojangMappings()
                 projectData.parchmentVersion?.let {
                     parchment("org.parchmentmc.data:parchment-${it}@zip")
