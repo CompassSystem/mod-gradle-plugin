@@ -1,6 +1,7 @@
 package compass_system.mod_gradle_plugin.extension
 
 import compass_system.mod_gradle_plugin.ConfigurationMethods
+import compass_system.mod_gradle_plugin.task.AbstractRestrictedTask
 import compass_system.mod_gradle_plugin.task.BuildModTask
 import compass_system.mod_gradle_plugin.task.ReleaseModTask
 import org.gradle.api.Project
@@ -11,8 +12,9 @@ class ModPluginExtensionImpl(private val project: Project) : ModPluginExtensionA
         val releaseTask = project.tasks.create("releaseMod", ReleaseModTask::class.java, project.projectDir)
 
         project.gradle.taskGraph.whenReady {
-            buildTask.doChecks()
-            releaseTask.doChecks()
+            allTasks.forEach {
+                (it as? AbstractRestrictedTask)?.doChecks()
+            }
         }
 
         projects.forEach { projectPath ->

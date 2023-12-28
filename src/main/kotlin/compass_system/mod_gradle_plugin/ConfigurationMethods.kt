@@ -1,7 +1,8 @@
 package compass_system.mod_gradle_plugin
 
-import com.modrinth.minotaur.Minotaur
 import com.modrinth.minotaur.ModrinthExtension
+import compass_system.mod_gradle_plugin.Utils.getGitCommit
+import compass_system.mod_gradle_plugin.Utils.titleCase
 import compass_system.mod_gradle_plugin.misc.JsonNormalizerReader
 import compass_system.mod_gradle_plugin.task.BuildModTask
 import compass_system.mod_gradle_plugin.task.ReleaseModTask
@@ -12,12 +13,14 @@ import org.gradle.api.JavaVersion
 import org.gradle.api.Project
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.plugins.BasePluginExtension
+import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.tasks.Jar
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByName
 import org.gradle.kotlin.dsl.named
 import org.gradle.language.jvm.tasks.ProcessResources
+import kotlin.io.path.readText
 
 object ConfigurationMethods {
     private val javaVersion = JavaVersion.VERSION_17
@@ -28,7 +31,7 @@ object ConfigurationMethods {
         configureGenericProject(project, projectData)
 
         if (projectData.producesReleaseArtifact) {
-            configureReleaseProject(project, projectData)
+            configureReleaseProject(project, projectData, buildTask, releaseTask)
         }
 
         configureFabricProject(project, projectData)
@@ -58,7 +61,7 @@ object ConfigurationMethods {
         }
     }
 
-    private fun configureReleaseProject(project: Project, projectData: ProjectData) {
+    private fun configureReleaseProject(project: Project, projectData: ProjectData, buildTask: BuildModTask, releaseTask: ReleaseModTask) {
         project.plugins.apply("com.modrinth.minotaur")
 
         project.tasks.apply {
@@ -87,10 +90,42 @@ object ConfigurationMethods {
             named("build").get().dependsOn("minJar")
         }
 
+        val modRelaseType = if (projectData.modVersion.contains("alpha")) "alpha" else if (projectData.modVersion.contains("beta")) "beta" else "release"
+
+        val targetVersions = buildList {
+            add(projectData.minecraftVersion)
+            (project.findProperty("extra_game_versions") as String?)?.split(",")?.forEach {
+                if (it.isNotBlank()) {
+                    add(it)
+                }
+            }
+        }
+
+        val repoBaseUrl = project.property("repo_base_url") as String
+        val modChangelog = buildString {
+            append(project.rootDir.toPath().resolve("changelog.md").readText(Charsets.UTF_8).replace("\r\n", "\n"))
+            append("\nCommit: $repoBaseUrl/commit/${getGitCommit()}")
+        }
+
         project.extensions.getByName<ModrinthExtension>("modrinth").apply {
             debugMode.set(System.getProperty("MOD_UPLOAD_DEBUG", "false") == "true")
             autoAddDependsOn.set(false)
             detectLoaders.set(false)
+
+            projectId.set(project.property("modrinth_project_id") as String?)
+            versionType.set(modRelaseType)
+            versionNumber.set(projectData.modVersion + "+" + project.name)
+            versionName.set(titleCase(projectData.platform) + " " + projectData.modVersion)
+            file.set((project.tasks.getByName("minJar") as AbstractArchiveTask).archiveFile)
+            changelog.set(modChangelog)
+            gameVersions.set(targetVersions)
+            loaders.set(listOf(projectData.platform))
+        }
+
+        buildTask.dependsOn(project.tasks.getByName("build"))
+
+        project.afterEvaluate {
+            releaseTask.finalizedBy(tasks.getByName("modrinth"))
         }
     }
 
