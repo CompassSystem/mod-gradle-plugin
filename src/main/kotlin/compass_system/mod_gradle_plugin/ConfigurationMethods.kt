@@ -3,6 +3,7 @@ package compass_system.mod_gradle_plugin
 import com.modrinth.minotaur.ModrinthExtension
 import compass_system.mod_gradle_plugin.Utils.getGitCommit
 import compass_system.mod_gradle_plugin.Utils.titleCase
+import compass_system.mod_gradle_plugin.Utils.exclusiveRepo
 import compass_system.mod_gradle_plugin.misc.JsonNormalizerReader
 import compass_system.mod_gradle_plugin.task.AbstractJsonTask
 import compass_system.mod_gradle_plugin.task.BuildModTask
@@ -41,6 +42,21 @@ object ConfigurationMethods {
 
         project.version = projectData.modVersion
         project.extensions.getByName<BasePluginExtension>("base").archivesName.set(project.property("archives_base_name") as String)
+
+        project.repositories.apply {
+            exclusiveRepo("Unnofficial Curseforge", "https://cursemaven.com") {
+                includeGroup("curse.maven")
+            }
+
+            exclusiveRepo("Modrinth", "https://api.modrinth.com/maven") {
+                includeGroup("maven.modrinth")
+            }
+
+            exclusiveRepo("ParchmentMC", "https://maven.parchmentmc.org") {
+                includeGroup("org.parchmentmc")
+                includeGroup("org.parchmentmc.data")
+            }
+        }
 
         project.tasks.apply {
             withType(JavaCompile::class.java).configureEach {
