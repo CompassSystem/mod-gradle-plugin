@@ -4,6 +4,7 @@ import com.modrinth.minotaur.ModrinthExtension
 import compass_system.mod_gradle_plugin.Utils.getGitCommit
 import compass_system.mod_gradle_plugin.Utils.titleCase
 import compass_system.mod_gradle_plugin.misc.JsonNormalizerReader
+import compass_system.mod_gradle_plugin.task.AbstractJsonTask
 import compass_system.mod_gradle_plugin.task.BuildModTask
 import compass_system.mod_gradle_plugin.task.ReleaseModTask
 import net.fabricmc.loom.api.LoomGradleExtensionAPI
@@ -11,7 +12,6 @@ import net.fabricmc.loom.configuration.FabricApiExtension
 import net.fabricmc.loom.task.RemapJarTask
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
-import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.plugins.BasePluginExtension
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.compile.JavaCompile
@@ -29,12 +29,11 @@ object ConfigurationMethods {
         val projectData = ProjectData(project)
 
         configureGenericProject(project, projectData)
+        configureFabricProject(project, projectData)
 
         if (projectData.producesReleaseArtifact) {
             configureReleaseProject(project, projectData, buildTask, releaseTask)
         }
-
-        configureFabricProject(project, projectData)
     }
 
     private fun configureGenericProject(project: Project, projectData: ProjectData) {
@@ -65,29 +64,18 @@ object ConfigurationMethods {
         project.plugins.apply("com.modrinth.minotaur")
 
         project.tasks.apply {
-            val baseTask = findByName("remapJar") ?: getByName("jar")
+            val baseTask = (findByName("remapJar") ?: getByName("jar")) as AbstractArchiveTask
 
-            create("minJar", Jar::class.java) {
-                inputs.files(baseTask.outputs.files)
+            val minJarTask = project.tasks.register("minJar", AbstractJsonTask::class.java, JsonNormalizerReader::class.java)
 
-                duplicatesStrategy = DuplicatesStrategy.FAIL
-
-                inputs.files.forEach {
-                    if (it.extension == "jar") {
-                        this.from(project.zipTree(it)) {
-                            exclude("**/MANIFEST.MF")
-                        }
-                    }
-                }
-
-                filesMatching(listOf("**/*.json", "**/*.mcmeta")) {
-                    filter(JsonNormalizerReader::class.java)
-                }
+            minJarTask.configure {
+                input.set(baseTask.outputs.files.singleFile)
+                archiveClassifier.set(projectData.platform)
 
                 dependsOn(baseTask)
             }
 
-            named("build").get().dependsOn("minJar")
+            getByName("assemble").dependsOn(minJarTask)
         }
 
         val modRelaseType = if (projectData.modVersion.contains("alpha")) "alpha" else if (projectData.modVersion.contains("beta")) "beta" else "release"
