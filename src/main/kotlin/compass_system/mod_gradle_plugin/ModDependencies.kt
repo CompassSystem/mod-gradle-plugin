@@ -1,11 +1,11 @@
 package compass_system.mod_gradle_plugin
 
 class ModDependencies {
-    private val dependencies = mutableMapOf<String, ModDependency>()
+    private val dependencies = mutableListOf<ModDependency>()
     private val enabledMods = mutableListOf<String>()
 
     fun add(modName: String, dependencyName: String = modName, configure: ModDependency.() -> Unit) {
-        dependencies[modName] = ModDependency(modName, dependencyName).apply(configure)
+        dependencies.add(ModDependency(modName, dependencyName).apply(configure))
     }
 
     fun enableMods(vararg modNames: String) {
@@ -13,23 +13,25 @@ class ModDependencies {
     }
 
     fun iterateCompileDependencies(action: (String) -> Unit) {
-        dependencies.map { (_, modDependency) ->
-            val compileOnly = modDependency.dependencies["compileOnly"] ?: mutableListOf()
-            val implementation = modDependency.dependencies["implementation"] ?: mutableListOf()
+        dependencies.map { dependency ->
+            val compileOnly = dependency.dependencies["compileOnly"] ?: mutableListOf()
+            val implementation = dependency.dependencies["implementation"] ?: mutableListOf()
 
             compileOnly + implementation
         }.flatten().distinct().forEach(action)
     }
 
     fun iterateRuntimeDependencies(action: (String) -> Unit) {
-        dependencies.filter { it.key in enabledMods }
-            .map { (_, modDependency) ->
-                val runtimeOnly = modDependency.dependencies["runtimeOnly"] ?: mutableListOf()
-                val implementation = modDependency.dependencies["implementation"] ?: mutableListOf()
+        dependencies.filter { it.modName in enabledMods }
+            .map { dependency ->
+                val runtimeOnly = dependency.dependencies["runtimeOnly"] ?: mutableListOf()
+                val implementation = dependency.dependencies["implementation"] ?: mutableListOf()
 
                 runtimeOnly + implementation
             }.flatten().distinct().forEach(action)
     }
+
+    fun getModrinthIds() = dependencies.map { it.modrinthName }
 }
 
 class ModDependency(val modName: String, val modrinthName: String) {
