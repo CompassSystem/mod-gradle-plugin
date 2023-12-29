@@ -141,10 +141,13 @@ object ConfigurationMethods {
         loom.apply {
             silentMojangMappingsLicense()
 
-            splitEnvironmentSourceSets()
-            mods.create(projectData.modId) {
-                sourceSet("main")
-                sourceSet("client")
+            if (projectData.splitSourcesets) {
+                splitEnvironmentSourceSets()
+
+                mods.create(projectData.modId) {
+                    sourceSet("main")
+                    sourceSet("client")
+                }
             }
 
             @Suppress("UnstableApiUsage")

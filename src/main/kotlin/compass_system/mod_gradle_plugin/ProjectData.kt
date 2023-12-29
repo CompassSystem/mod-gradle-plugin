@@ -9,6 +9,7 @@ class ProjectData(project: Project) {
 
     val usesDatagen = project.findProperty("template.usesDataGen") == "true"
     val producesReleaseArtifact = project.findProperty("template.producesReleaseArtifact") == "true"
+    val splitSourcesets = (project.findProperty("template.splitSourcesets") ?: "true") == "true"
 
     val minecraftVersion: String = project.property("minecraft_version") as String
     val parchmentVersion: String? = project.findProperty("parchment_version") as String?
