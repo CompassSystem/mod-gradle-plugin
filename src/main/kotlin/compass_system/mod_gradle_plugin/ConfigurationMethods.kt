@@ -51,6 +51,13 @@ object ConfigurationMethods {
         }
     }
 
+    fun configureCommon(project: Project) {
+        val projectData = ProjectData(project)
+
+        configureGenericProject(project, projectData)
+        configureGenericLoomProject(project, projectData)
+    }
+
     private fun configureGenericProject(project: Project, projectData: ProjectData) {
         project.plugins.apply("java-library")
 
@@ -191,13 +198,20 @@ object ConfigurationMethods {
         }
 
         project.tasks.apply {
-            val modMetadata = if (projectData.platform == "fabric") "fabric.mod.json" else "META-INF/mods.toml"
+            val modMetadata = when (projectData.platform) {
+                "fabric" -> "fabric.mod.json"
+                "forge", "neoforge" -> "META-INF/mods.toml"
+                else -> null
+            }
 
-            named<ProcessResources>("processResources") {
-                inputs.properties(mutableMapOf("version" to projectData.modVersion))
+            modMetadata?.let {
+                named<ProcessResources>("processResources") {
+                    inputs.properties(mutableMapOf("version" to projectData.modVersion))
 
-                filesMatching(modMetadata) {
-                    expand(inputs.properties)
+
+                    filesMatching(it) {
+                        expand(inputs.properties)
+                    }
                 }
             }
 

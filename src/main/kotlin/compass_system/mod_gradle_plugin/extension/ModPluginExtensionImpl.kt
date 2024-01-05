@@ -27,7 +27,8 @@ class ModPluginExtensionImpl(private val project: Project) : ModPluginExtensionA
 
             Pair(sub, platform)
         }.forEach { (project, platform) ->
-            when(platform) {
+            when (platform) {
+                "common" -> ConfigurationMethods.configureCommon(project)
                 "fabric" -> ConfigurationMethods.configureFabric(project, buildTask, releaseTask)
                 "neoforge" -> ConfigurationMethods.configureNeoForge(project, buildTask, releaseTask)
                 else -> throw IllegalArgumentException("Project ${project.path} has an invalid template.platform value: $platform")
