@@ -21,6 +21,7 @@ import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByName
 import org.gradle.kotlin.dsl.named
 import org.gradle.language.jvm.tasks.ProcessResources
+import java.net.URI
 import kotlin.io.path.readText
 
 object ConfigurationMethods {
@@ -30,7 +31,20 @@ object ConfigurationMethods {
         val projectData = ProjectData(project)
 
         configureGenericProject(project, projectData)
+        configureGenericLoomProject(project, projectData)
         configureFabricProject(project, projectData)
+
+        if (projectData.producesReleaseArtifact) {
+            configureReleaseProject(project, projectData, buildTask, releaseTask)
+        }
+    }
+
+    fun configureNeoForge(project: Project, buildTask: BuildModTask, releaseTask: ReleaseModTask) {
+        val projectData = ProjectData(project)
+
+        configureGenericProject(project, projectData)
+        configureGenericLoomProject(project, projectData)
+        configureNeoForgeProject(project, projectData)
 
         if (projectData.producesReleaseArtifact) {
             configureReleaseProject(project, projectData, buildTask, releaseTask)
@@ -133,7 +147,7 @@ object ConfigurationMethods {
         }
     }
 
-    private fun configureFabricProject(project: Project, projectData: ProjectData) {
+    private fun configureGenericLoomProject(project: Project, projectData: ProjectData) {
         project.plugins.apply("dev.architectury.loom")
 
         val loom = project.extensions.getByName<LoomGradleExtensionAPI>("loom")
@@ -151,19 +165,16 @@ object ConfigurationMethods {
             }
 
             @Suppress("UnstableApiUsage")
-            mixin.defaultRefmapName.set("${projectData.modId}.refmap.json")
+            mixin {
+                if (projectData.platform in listOf("forge", "neoforge")) {
+                    useLegacyMixinAp.set(true)
+                }
+
+                defaultRefmapName.set("${projectData.modId}.refmap.json")
+            }
 
             if (project.hasProperty("access_widener_path")) {
                 accessWidenerPath.set(project.file(project.property("access_widener_path") as String))
-            }
-        }
-
-        if (projectData.usesDatagen) {
-            project.extensions.getByName<FabricApiExtension>("fabricApi").apply {
-                configureDataGeneration {
-                    modId.set(projectData.modId)
-                    outputDirectory.set(project.file("src/generated/resources"))
-                }
             }
         }
 
@@ -176,17 +187,16 @@ object ConfigurationMethods {
                 }
             })
 
-            add("modImplementation", "net.fabricmc:fabric-loader:${project.property("fabric_loader_version")}")
-            add("modImplementation", "net.fabricmc.fabric-api:fabric-api:${project.property("fabric_api_version")}")
-
             add("compileOnly", "org.jetbrains:annotations:24.1.0")
         }
 
         project.tasks.apply {
+            val modMetadata = if (projectData.platform == "fabric") "fabric.mod.json" else "META-INF/mods.toml"
+
             named<ProcessResources>("processResources") {
                 inputs.properties(mutableMapOf("version" to projectData.modVersion))
 
-                filesMatching("fabric.mod.json") {
+                filesMatching(modMetadata) {
                     expand(inputs.properties)
                 }
             }
@@ -208,6 +218,39 @@ object ConfigurationMethods {
                     }
                 }
             }
+        }
+    }
+
+    private fun configureFabricProject(project: Project, projectData: ProjectData) {
+        if (projectData.usesDatagen) {
+            project.extensions.getByName<FabricApiExtension>("fabricApi").apply {
+                configureDataGeneration {
+                    modId.set(projectData.modId)
+                    outputDirectory.set(project.file("src/generated/resources"))
+                }
+            }
+        }
+
+        project.dependencies {
+            add("modImplementation", "net.fabricmc:fabric-loader:${project.property("fabric_loader_version")}")
+            add("modImplementation", "net.fabricmc.fabric-api:fabric-api:${project.property("fabric_api_version")}")
+        }
+    }
+
+    private fun configureNeoForgeProject(project: Project, projectData: ProjectData) {
+        project.repositories.apply {
+            maven {
+                name = "NeoForge Maven"
+                url = URI.create("https://maven.neoforged.net/releases")
+            }
+
+            exclusiveRepo("Kotlin for Forge", "https://thedarkcolour.github.io/KotlinForForge/") {
+                includeGroup("thedarkcolour")
+            }
+        }
+
+        project.dependencies.apply {
+            add("neoForge", "net.neoforged:neoforge:${project.property("neoforge_version")}")
         }
     }
 }

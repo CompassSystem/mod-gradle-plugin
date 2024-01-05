@@ -17,17 +17,20 @@ class ModPluginExtensionImpl(private val project: Project) : ModPluginExtensionA
             }
         }
 
-        projects.forEach { projectPath ->
+        projects.map { projectPath ->
             val sub = project.project(projectPath)
 
             val platform = sub.findProperty("template.platform") ?: throw IllegalArgumentException("Project $projectPath does not have a template.platform property")
 
+            // todo: this does not work, this needs to happen before root project is evaluated.
             (sub.properties as MutableMap<String, Any?>)["loom.platform"] = platform
 
-            if (platform == "fabric") {
-                ConfigurationMethods.configureFabric(sub, buildTask, releaseTask)
-            } else {
-                throw IllegalArgumentException("Project $projectPath has an invalid template.platform value: $platform")
+            Pair(sub, platform)
+        }.forEach { (project, platform) ->
+            when(platform) {
+                "fabric" -> ConfigurationMethods.configureFabric(project, buildTask, releaseTask)
+                "neoforge" -> ConfigurationMethods.configureNeoForge(project, buildTask, releaseTask)
+                else -> throw IllegalArgumentException("Project ${project.path} has an invalid template.platform value: $platform")
             }
         }
     }
